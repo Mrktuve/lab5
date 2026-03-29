@@ -1,7 +1,7 @@
 
 
-import collection.WorkerCollection;
-import collection.XmlManager;
+
+import collection.*;
 import commands.CommandManager;
 
 public class Main {
