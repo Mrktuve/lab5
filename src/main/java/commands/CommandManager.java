@@ -1,5 +1,6 @@
 package commands;
 
+import collection.ScriptParser;
 import collection.WorkerCollection;
 import collection.XmlManager;
 import commands.others.*;
@@ -24,6 +25,8 @@ public class CommandManager {
     }
 
     private void registerCommands() {
+        ScriptParser.initialize();
+        ScriptParser.getInstance().setDependencies(collection, commands);
 
         commands.put("help", new Help());
         commands.put("info", new Info(collection));
@@ -38,7 +41,7 @@ public class CommandManager {
         commands.put("add_if_max", new AddIfMax(collection, scanner));
         commands.put("update_id", new UpdateId(collection, scanner));
         commands.put("remove_lower", new RemoveLower(collection, scanner));
-        commands.put("execute_script", new ExecuteScript(collection, fileName, commands));
+        commands.put("execute_script", new ExecuteScript(collection, commands));
         commands.put("exit", new Exit());
         commands.put("history", new History(history));
     }

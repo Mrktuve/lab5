@@ -1,9 +1,14 @@
 package commands.others;
 
-import commands.Command;
 import collection.WorkerCollection;
-import model.*;
-import enums.*;
+import commands.Command;
+import enums.Country;
+import enums.EyeColor;
+import enums.HairColor;
+import enums.Status;
+import model.Coordinates;
+import model.Person;
+import model.Worker;
 
 import java.util.Scanner;
 
@@ -41,7 +46,6 @@ public class Add extends Command {
         return "добавить элемент";
     }
 
-    // === Ввод Worker (из вашего исходного кода) ===
     protected Worker readWorker(int fixedId) {
         Worker w = new Worker();
         int id = fixedId > 0 ? fixedId : nextId++;

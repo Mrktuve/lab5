@@ -1,89 +1,68 @@
 package commands.others;
 
-import commands.Command;
+import collection.ScriptParser;
 import collection.WorkerCollection;
+import commands.Command;
 import model.Worker;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.Map;
-import java.util.Scanner;
 
 public class ExecuteScript extends Command {
+
     private final WorkerCollection collection;
-    private final String fileName;
     private final Map<String, Command> commandRegistry;
 
-    public ExecuteScript(WorkerCollection collection, String fileName, Map<String, Command> commandRegistry) {
+    public ExecuteScript(WorkerCollection collection, Map<String, Command> commandRegistry) {
         this.collection = collection;
-        this.fileName = fileName;
         this.commandRegistry = commandRegistry;
-    }
 
-    @Override public void execute() {
-        System.out.println("Нужен путь к файлу: execute_script {file_name}");
-    }
-
-    @Override public void execute(String arg) {
-        if (arg == null) {
-            System.out.println("Нужен путь к файлу");
-            return;
-        }
-
-        File scriptFile = new File(arg);
-        if (!scriptFile.exists()) {
-            System.out.println("Файл не найден: " + arg);
-            return;
-        }
-
-        try (Scanner fileScanner = new Scanner(scriptFile)) {
-            System.out.println("Выполняю скрипт: " + arg);
-            while (fileScanner.hasNextLine()) {
-                String line = fileScanner.nextLine().trim();
-                if (line.isEmpty() || line.startsWith("#")) continue;
-
-                System.out.println("> " + line);
-                String[] parts = line.split("\\s+", 2);
-                String cmd = parts[0];
-                String cmdArg = parts.length > 1 ? parts[1].trim() : null;
-
-                processCommand(cmd, cmdArg);
+        // Инициализация парсера при первом создании команды
+        if (ScriptParser.getInstance() == null) {
+            try {
+                ScriptParser.initialize();
+                ScriptParser.getInstance().setDependencies(collection, commandRegistry);
+            } catch (IllegalStateException ignored) {
+                // Уже инициализирован в другом месте
             }
-            System.out.println("Скрипт завершён");
-        } catch (FileNotFoundException e) {
-            System.out.println("Файл не найден: " + e.getMessage());
         }
     }
 
-    @Override public void execute(String arg, Worker worker) {
-        execute(arg);
+    @Override
+    public void execute() {
+        System.out.println();
+        System.out.println("Не поддерживается без аргумента");
+        System.out.println("Использование: execute_script {file_name}");
+        System.out.println();
     }
 
-    @Override public void execute(Worker worker) {
-        System.out.println("Команда требует имя файла");
+    @Override
+    public void execute(String fileName) {
+        System.out.println();
+        System.out.println("Чтение команд из файла: " + fileName);
+        System.out.println();
+
+        // Установка зависимостей (на случай, если не были установлены)
+        ScriptParser.getInstance().setDependencies(collection, commandRegistry);
+
+        // Выполнение скрипта
+        ScriptParser.getInstance().executeScript(fileName);
+
+        // Сброс после выполнения
+        ScriptParser.getInstance().reset();
     }
 
-    @Override public String commandInfo() {
-        return "выполнить скрипт из файла";
+    @Override
+    public void execute(String value1, Worker value2) {
+        execute(value1);
     }
 
-    private void processCommand(String cmd, String arg) {
-        switch (cmd) {
-            case "show":
-            case "clear":
-            case "info":
-            case "save":
-                Command c = commandRegistry.get(cmd);
-                if (c != null) c.execute();
-                break;
-            case "remove_by_id":
-                if (arg != null) {
-                    Command rbid = commandRegistry.get("remove_by_id");
-                    if (rbid != null) rbid.execute(arg);
-                }
-                break;
-            default:
-                System.out.println("  → команда '" + cmd + "' пропущена (нужен интерактивный ввод)");
-        }
+    @Override
+    public void execute(Worker value1) {
+        System.out.println("Команда не поддерживает Worker без имени файла");
+    }
+
+    @Override
+    public String commandInfo() {
+        return "считать и исполнить скрипт из указанного файла";
     }
 }
