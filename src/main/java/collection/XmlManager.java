@@ -9,16 +9,16 @@ import java.time.format.DateTimeFormatter;
 import java.util.PriorityQueue;
 import java.util.Scanner;
 
-/**
- * Простой менеджер для работы с XML через Scanner и PrintWriter
- */
+
+
+
 public class XmlManager {
 
     private static final DateTimeFormatter DF = DateTimeFormatter.ISO_LOCAL_DATE;
 
-    /**
-     * Загружает коллекцию из файла
-     */
+
+
+
     public PriorityQueue<Worker> load(String fileName) {
         PriorityQueue<Worker> queue = new PriorityQueue<>();
         File file = new File(fileName);
@@ -48,13 +48,12 @@ public class XmlManager {
         return queue;
     }
 
-    /**
-     * Парсит одного работника
-     */
+
+
     private Worker parseWorker(String xml) {
         Worker w = new Worker();
 
-        // ID из атрибута
+
         try {
             int idStart = xml.indexOf("id=\"") + 4;
             int idEnd = xml.indexOf("\"", idStart);
@@ -79,7 +78,7 @@ public class XmlManager {
         }
         w.setCoordinates(c);
 
-        // Даты
+
         try {
             String cd = get(xml, "creationDate");
             w.setCreationDate(cd.isEmpty() ? LocalDate.now() : LocalDate.parse(cd, DF));
@@ -95,7 +94,7 @@ public class XmlManager {
             w.setStartDate(sd.isEmpty() ? LocalDate.now() : LocalDate.parse(sd, DF));
         } catch (Exception e) { w.setStartDate(LocalDate.now()); }
 
-        // EndDate может быть null
+
         String ed = get(xml, "endDate");
         if (!ed.isEmpty()) {
             try {
@@ -123,7 +122,7 @@ public class XmlManager {
             try { p.setHairColor(HairColor.valueOf(hc.trim())); } catch (Exception ignored) {}
         }
 
-        String nc = get(xml, "nationality");
+        String nc = get(xml, "country");
         if (!nc.isEmpty()) {
             try { p.setCountry(Country.valueOf(nc.trim())); } catch (Exception ignored) {}
         }
@@ -132,9 +131,7 @@ public class XmlManager {
         return w;
     }
 
-    /**
-     * Получает содержимое тега
-     */
+
     private String get(String xml, String tag) {
         String open = "<" + tag + ">";
         String close = "</" + tag + ">";
@@ -146,9 +143,7 @@ public class XmlManager {
         return xml.substring(start, end).trim();
     }
 
-    /**
-     * Сохраняет коллекцию в файл
-     */
+
     public void save(String fileName, PriorityQueue<Worker> queue) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(fileName))) {
             pw.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -164,21 +159,19 @@ public class XmlManager {
         }
     }
 
-    /**
-     * Записывает одного работника
-     */
+
     private void writeWorker(PrintWriter pw, Worker w) {
         pw.println("  <worker id=\"" + w.getId() + "\">");
 
         pw.println("    <name>" + esc(w.getName()) + "</name>");
 
-        // Coordinates
+
         if (w.getCoordinates() != null) {
             pw.println("    <x>" + w.getCoordinates().getX() + "</x>");
             pw.println("    <y>" + w.getCoordinates().getY() + "</y>");
         }
 
-        // Даты с защитой от null
+
         LocalDate cd = w.getCreationDate();
         pw.println("    <creationDate>" + (cd != null ? cd : LocalDate.now()).format(DF) + "</creationDate>");
 
@@ -187,7 +180,7 @@ public class XmlManager {
         LocalDate sd = w.getStartDate();
         pw.println("    <startDate>" + (sd != null ? sd : LocalDate.now()).format(DF) + "</startDate>");
 
-        // EndDate
+
         if (w.getEndDate() != null) {
             LocalDate ed = ((java.sql.Date) w.getEndDate()).toLocalDate();
             pw.println("    <endDate>" + ed.format(DF) + "</endDate>");
@@ -215,9 +208,7 @@ public class XmlManager {
         pw.println("  </worker>");
     }
 
-    /**
-     * Экранирует спецсимволы для XML
-     */
+
     private String esc(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;")

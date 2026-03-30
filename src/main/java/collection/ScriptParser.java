@@ -10,11 +10,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Парсер команд из файла.
- * Реализует паттерн Singleton.
- * Читает команды построчно, поддерживает интерактивные команды и защиту от рекурсии.
- */
+
+
+
+
+
 public class ScriptParser {
 
     private static ScriptParser instance;
@@ -88,7 +88,6 @@ public class ScriptParser {
                     continue;
                 }
 
-                // Проверка: нужна ли команде сущность Worker?
                 Worker worker = readWorkerIfNeeded(cmdName, arg, reader);
 
                 try {
@@ -132,22 +131,16 @@ public class ScriptParser {
         }
     }
 
-    /**
-     * Проверка: требует ли команда ввод Worker?
-     */
+
     private boolean needsWorkerInput(String cmdName, String arg) {
         return switch (cmdName) {
-            case "add" -> true;
-            case "add_if_max" -> true;
-            case "remove_lower" -> true;
+            case "add", "add_if_max","remove_lower" -> true;
             case "update_id" -> arg != null && !arg.isEmpty();
             default -> false;
         };
     }
 
-    /**
-     * Чтение Worker из BufferedReader (аналогично вводу с консоли)
-     */
+
     private Worker readWorkerFromReader(BufferedReader reader, String cmdName, String arg) throws Exception {
         Worker w = new Worker();
 
@@ -199,7 +192,7 @@ public class ScriptParser {
         return w;
     }
 
-    // === Утилиты чтения ===
+
 
     private String readLine(BufferedReader reader) throws IOException {
         String line = reader.readLine();
