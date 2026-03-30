@@ -40,7 +40,29 @@ public class UpdateId extends Command {
         }
     }
 
-    @Override public void execute(String arg, Worker worker) {
+    @Override public void execute(String arg, Worker w) {
+        if (arg == null || w == null) {
+            System.out.println("Нужен id и данные работника");
+            return;
+        }
+        try {
+            int id = Integer.parseInt(arg);
+            Worker old = collection.findById(id);
+            if (old == null) {
+                System.out.println("Элемент с id " + id + " не найден");
+                return;
+            }
+            collection.removeById(id);
+
+
+            w.setId(id);
+            w.setCreationDate(old.getCreationDate());
+
+            collection.add(w);
+            System.out.println("Элемент с id " + id + " обновлён");
+        } catch (NumberFormatException e) {
+            System.out.println("id должен быть числом");
+        }
 
     }
     @Override public void execute(Worker worker) {
