@@ -19,18 +19,14 @@ public class ScriptParser {
 
     private static ScriptParser instance;
 
-    // Список файлов для детекции рекурсии
     private static final Set<String> executedFiles = new HashSet<>();
 
-    // Зависимости
     private WorkerCollection collection;
     private Map<String, Command> commandRegistry;
 
+
     private ScriptParser() {}
 
-    /**
-     * Инициализация парсера (вызывается один раз при старте)
-     */
     public static void initialize() {
         if (instance == null) {
             instance = new ScriptParser();
@@ -39,9 +35,7 @@ public class ScriptParser {
         }
     }
 
-    /**
-     * Получение экземпляра парсера
-     */
+
     public static ScriptParser getInstance() {
         if (instance == null) {
             throw new IllegalStateException("ScriptParser not initialized. Call initialize() first.");
@@ -49,18 +43,13 @@ public class ScriptParser {
         return instance;
     }
 
-    /**
-     * Установка зависимостей (вызывается из CommandManager)
-     */
+
     public void setDependencies(WorkerCollection collection, Map<String, Command> commandRegistry) {
         this.collection = collection;
         this.commandRegistry = commandRegistry;
     }
 
-    /**
-     * Чтение и выполнение команд из файла
-     * @param fileName путь к файлу со скриптом
-     */
+
     public void executeScript(String fileName) {
         if (fileName == null || fileName.isEmpty()) {
             System.out.println("Нужен путь к файлу");
@@ -114,28 +103,22 @@ public class ScriptParser {
         } catch (IOException e) {
             System.out.println("Файл не найден: " + fileName);
         } finally {
-            // Удаляем файл из списка после выполнения
             executedFiles.remove(fileName);
         }
     }
 
-    /**
-     * Проверка на рекурсивный вызов execute_script
-     */
+
     private boolean checkRecursion(String cmdName, String arg) {
         if ("execute_script".equals(cmdName) && arg != null && !arg.isEmpty()) {
             if (executedFiles.contains(arg)) {
                 System.out.println("Рекурсия: файл '" + arg + "' уже в стеке выполнения");
                 return true;
             }
-            // Не добавляем в executedFiles здесь — это сделает внешний вызов
         }
         return false;
     }
 
-    /**
-     * Чтение Worker из файла, если команда требует интерактивный ввод
-     */
+
     private Worker readWorkerIfNeeded(String cmdName, String arg, BufferedReader reader) {
         if (!needsWorkerInput(cmdName, arg)) {
             return null;
@@ -168,7 +151,6 @@ public class ScriptParser {
     private Worker readWorkerFromReader(BufferedReader reader, String cmdName, String arg) throws Exception {
         Worker w = new Worker();
 
-        // Генерация ID
         if ("update_id".equals(cmdName) && arg != null) {
             w.setId(Integer.parseInt(arg));
         } else {
@@ -179,13 +161,12 @@ public class ScriptParser {
             w.setId(maxId + 1);
         }
 
-        // === Чтение полей ===
 
-        // Имя
+
+
         String name = readNonEmptyLine(reader, "name");
         w.setName(name);
 
-        // Координаты
         double x = readBoundedDouble(reader, "x", -26);
         float y = readFloat(reader, "y");
         model.Coordinates coords = new model.Coordinates();
@@ -194,31 +175,25 @@ public class ScriptParser {
         w.setCoordinates(coords);
 
         w.setCreationDate(java.time.LocalDate.now());
-
-        // Зарплата
         double salary = readPositiveDouble(reader, "salary");
         w.setSalary(salary);
 
-        // Дата начала
         java.time.LocalDate startDate = readLocalDate(reader, "startDate");
         w.setStartDate(startDate);
 
-        // Дата окончания (опционально)
         String endDateStr = readOptionalLine(reader);
         if (endDateStr != null && !endDateStr.isEmpty()) {
             w.setEndDate(java.sql.Date.valueOf(java.time.LocalDate.parse(endDateStr)));
         }
 
-        // Статус
         enums.Status status = readEnum(reader, "status", enums.Status.class);
         w.setStatus(status);
 
-        // Person
         model.Person p = new model.Person();
         p.setPassportID(readNonEmptyLine(reader, "passportID"));
         p.setEyeColor(readEnum(reader, "eyeColor", enums.EyeColor.class));
         p.setHairColor(readEnum(reader, "hairColor", enums.HairColor.class));
-        p.setNationality(readEnum(reader, "nationality", enums.Country.class));
+        p.setCountry(readEnum(reader, "country", enums.Country.class));
         w.setPerson(p);
 
         return w;
@@ -294,9 +269,6 @@ public class ScriptParser {
         }
     }
 
-    /**
-     * Выполнение команды через реестр
-     */
     private void executeCommand(String cmdName, String arg, Worker worker) {
         Command command = commandRegistry.get(cmdName);
 
@@ -318,9 +290,6 @@ public class ScriptParser {
         }
     }
 
-    /**
-     * Очистка списка выполненных файлов (вызывается после завершения скрипта)
-     */
     public void reset() {
         executedFiles.clear();
     }

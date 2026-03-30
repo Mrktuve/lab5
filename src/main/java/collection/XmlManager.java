@@ -10,330 +10,217 @@ import java.util.PriorityQueue;
 import java.util.Scanner;
 
 /**
- * Класс для работы с XML файлами через Scanner и PrintWriter
+ * Простой менеджер для работы с XML через Scanner и PrintWriter
  */
 public class XmlManager {
 
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter DF = DateTimeFormatter.ISO_LOCAL_DATE;
 
     /**
-     * Загружает коллекцию Workers из XML файла
-     * @param fileName имя файла
-     * @return PriorityQueue с Worker объектами
+     * Загружает коллекцию из файла
      */
     public PriorityQueue<Worker> load(String fileName) {
         PriorityQueue<Worker> queue = new PriorityQueue<>();
-
         File file = new File(fileName);
+
         if (!file.exists()) {
             return queue;
         }
 
-        try (Scanner scanner = new Scanner(file)) {
-            scanner.useDelimiter("\\Z"); // Читаем весь файл
-            String content = scanner.hasNext() ? scanner.next() : "";
+        try (Scanner sc = new Scanner(file)) {
+            sc.useDelimiter("\\Z");
+            String xml = sc.hasNext() ? sc.next() : "";
 
-            queue = parseXML(content);
+            // Разбиваем по тегам <worker
+            String[] parts = xml.split("<worker");
+            for (String part : parts) {
+                if (part.trim().isEmpty()) continue;
 
-        } catch (FileNotFoundException e) {
-            System.out.println("Файл не найден. Создана новая коллекция.");
-        } catch (Exception e) {
-            System.out.println("Ошибка при чтении файла: " + e.getMessage());
-        }
-
-        return queue;
-    }
-
-    /**
-     * Парсит XML строку и создает коллекцию Workers
-     */
-    private PriorityQueue<Worker> parseXML(String xml) {
-        PriorityQueue<Worker> queue = new PriorityQueue<>();
-
-        // Разбиваем на отдельные worker элементы
-        String[] workers = xml.split("<worker");
-
-        for (String workerStr : workers) {
-            if (workerStr.trim().isEmpty()) {
-                continue;
-            }
-
-            try {
-                Worker worker = parseWorker(workerStr);
-                // Проверяем, что worker валидный (не null и имеет имя)
-                if (worker != null && worker.getName() != null && !worker.getName().isEmpty()) {
-                    queue.add(worker);
+                Worker w = parseWorker(part);
+                if (w != null && w.getName() != null && !w.getName().isEmpty()) {
+                    queue.add(w);
                 }
-            } catch (Exception e) {
-                // Пропускаем невалидные элементы
             }
+        } catch (Exception e) {
+            System.out.println("Ошибка чтения: " + e.getMessage());
         }
 
         return queue;
     }
 
     /**
-     * Парсит один элемент worker
+     * Парсит одного работника
      */
     private Worker parseWorker(String xml) {
-        Worker worker = new Worker();
+        Worker w = new Worker();
 
-        // Извлекаем id из атрибута
-        int idStart = xml.indexOf("id=\"") + 4;
-        int idEnd = xml.indexOf("\"", idStart);
-        if (idStart > 3 && idEnd > idStart) {
-            try {
-                int id = Integer.parseInt(xml.substring(idStart, idEnd));
-                worker.setId(id);
-            } catch (NumberFormatException e) {
-                // Оставляем автогенерацию id
+        // ID из атрибута
+        try {
+            int idStart = xml.indexOf("id=\"") + 4;
+            int idEnd = xml.indexOf("\"", idStart);
+            if (idStart > 3 && idEnd > idStart) {
+                w.setId(Integer.parseInt(xml.substring(idStart, idEnd)));
             }
-        }
+        } catch (Exception ignored) {}
 
-        // Извлекаем простые текстовые поля
-        String name = getTagContent(xml, "name");
-        if (name == null || name.isEmpty()) {
-            return null; // Worker без имени невалиден
-        }
-        worker.setName(name);
+        // Простые поля
+        w.setName(get(xml, "name"));
+        if (w.getName() == null || w.getName().isEmpty()) return null;
 
         // Coordinates
-        Coordinates coords = new Coordinates();
-        String xStr = getTagContent(xml, "x");
-        String yStr = getTagContent(xml, "y");
-        if (!xStr.isEmpty()) {
-            try {
-                coords.setX(Double.parseDouble(xStr));
-            } catch (NumberFormatException e) {
-                coords.setX(null);
-            }
+        Coordinates c = new Coordinates();
+        String x = get(xml, "x");
+        String y = get(xml, "y");
+        if (!x.isEmpty()) {
+            try { c.setX(Double.parseDouble(x)); } catch (Exception ignored) {}
         }
-        if (!yStr.isEmpty()) {
-            try {
-                coords.setY(Float.parseFloat(yStr));
-            } catch (NumberFormatException e) {
-                coords.setY(0.0f);
-            }
+        if (!y.isEmpty()) {
+            try { c.setY(Float.parseFloat(y)); } catch (Exception ignored) {}
         }
-        worker.setCoordinates(coords);
+        w.setCoordinates(c);
 
         // Даты
-        String creationDateStr = getTagContent(xml, "creationDate");
-        if (!creationDateStr.isEmpty()) {
-            try {
-                worker.setCreationDate(LocalDate.parse(creationDateStr, DATE_FORMAT));
-            } catch (Exception e) {
-                worker.setCreationDate(LocalDate.now());
-            }
-        } else {
-            worker.setCreationDate(LocalDate.now());
-        }
+        try {
+            String cd = get(xml, "creationDate");
+            w.setCreationDate(cd.isEmpty() ? LocalDate.now() : LocalDate.parse(cd, DF));
+        } catch (Exception e) { w.setCreationDate(LocalDate.now()); }
 
-        // Salary
-        String salaryStr = getTagContent(xml, "salary");
-        if (!salaryStr.isEmpty()) {
-            try {
-                worker.setSalary(Double.parseDouble(salaryStr));
-            } catch (NumberFormatException e) {
-                worker.setSalary(0.0);
-            }
-        }
+        try {
+            String sal = get(xml, "salary");
+            w.setSalary(sal.isEmpty() ? 0 : Double.parseDouble(sal));
+        } catch (Exception ignored) {}
 
-        // StartDate
-        String startDateStr = getTagContent(xml, "startDate");
-        if (!startDateStr.isEmpty()) {
-            try {
-                worker.setStartDate(LocalDate.parse(startDateStr, DATE_FORMAT));
-            } catch (Exception e) {
-                worker.setStartDate(LocalDate.now());
-            }
-        } else {
-            worker.setStartDate(LocalDate.now());
-        }
+        try {
+            String sd = get(xml, "startDate");
+            w.setStartDate(sd.isEmpty() ? LocalDate.now() : LocalDate.parse(sd, DF));
+        } catch (Exception e) { w.setStartDate(LocalDate.now()); }
 
-        // EndDate (может быть null)
-        String endDateStr = getTagContent(xml, "endDate");
-        if (!endDateStr.isEmpty()) {
+        // EndDate может быть null
+        String ed = get(xml, "endDate");
+        if (!ed.isEmpty()) {
             try {
-                LocalDate localDate = LocalDate.parse(endDateStr, DATE_FORMAT);
-                worker.setEndDate(java.sql.Date.valueOf(localDate));
-            } catch (Exception e) {
-                worker.setEndDate(null);
-            }
+                w.setEndDate(java.sql.Date.valueOf(LocalDate.parse(ed, DF)));
+            } catch (Exception ignored) {}
         }
 
         // Status
-        String statusStr = getTagContent(xml, "status");
-        if (!statusStr.isEmpty()) {
-            try {
-                worker.setStatus(Status.valueOf(statusStr.trim()));
-            } catch (Exception e) {
-                worker.setStatus(null);
-            }
+        String st = get(xml, "status");
+        if (!st.isEmpty()) {
+            try { w.setStatus(Status.valueOf(st.trim())); } catch (Exception ignored) {}
         }
 
         // Person
-        Person person = new Person();
+        Person p = new Person();
+        p.setPassportID(get(xml, "passportID"));
 
-        String passportID = getTagContent(xml, "passportID");
-        if (!passportID.isEmpty()) {
-            person.setPassportID(passportID);
+        String ec = get(xml, "eyeColor");
+        if (!ec.isEmpty()) {
+            try { p.setEyeColor(EyeColor.valueOf(ec.trim())); } catch (Exception ignored) {}
         }
 
-        String eyeColorStr = getTagContent(xml, "eyeColor");
-        if (!eyeColorStr.isEmpty()) {
-            try {
-                person.setEyeColor(EyeColor.valueOf(eyeColorStr.trim()));
-            } catch (Exception e) {
-                person.setEyeColor(null);
-            }
+        String hc = get(xml, "hairColor");
+        if (!hc.isEmpty()) {
+            try { p.setHairColor(HairColor.valueOf(hc.trim())); } catch (Exception ignored) {}
         }
 
-        String hairColorStr = getTagContent(xml, "hairColor");
-        if (!hairColorStr.isEmpty()) {
-            try {
-                person.setHairColor(HairColor.valueOf(hairColorStr.trim()));
-            } catch (Exception e) {
-                person.setHairColor(null);
-            }
+        String nc = get(xml, "nationality");
+        if (!nc.isEmpty()) {
+            try { p.setCountry(Country.valueOf(nc.trim())); } catch (Exception ignored) {}
         }
 
-        String nationalityStr = getTagContent(xml, "nationality");
-        if (!nationalityStr.isEmpty()) {
-            try {
-                person.setNationality(Country.valueOf(nationalityStr.trim()));
-            } catch (Exception e) {
-                person.setNationality(null);
-            }
-        }
-
-        worker.setPerson(person);
-
-        return worker;
+        w.setPerson(p);
+        return w;
     }
 
     /**
-     * Извлекает содержимое тега
+     * Получает содержимое тега
      */
-    private String getTagContent(String xml, String tagName) {
-        String openTag = "<" + tagName + ">";
-        String closeTag = "</" + tagName + ">";
-
-        int startIndex = xml.indexOf(openTag);
-        if (startIndex == -1) {
-            return "";
-        }
-
-        startIndex += openTag.length();
-        int endIndex = xml.indexOf(closeTag, startIndex);
-
-        if (endIndex == -1) {
-            return "";
-        }
-
-        return xml.substring(startIndex, endIndex).trim();
+    private String get(String xml, String tag) {
+        String open = "<" + tag + ">";
+        String close = "</" + tag + ">";
+        int start = xml.indexOf(open);
+        if (start == -1) return "";
+        start += open.length();
+        int end = xml.indexOf(close, start);
+        if (end == -1) return "";
+        return xml.substring(start, end).trim();
     }
 
     /**
-     * Сохраняет коллекцию Workers в XML файл
-     * @param fileName имя файла
-     * @param queue коллекция для сохранения
+     * Сохраняет коллекцию в файл
      */
     public void save(String fileName, PriorityQueue<Worker> queue) {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(fileName))) {
-            writer.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-            writer.println("<workers>");
+        try (PrintWriter pw = new PrintWriter(new FileWriter(fileName))) {
+            pw.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+            pw.println("<workers>");
 
-            for (Worker worker : queue) {
-                writeWorker(writer, worker);
+            for (Worker w : queue) {
+                writeWorker(pw, w);
             }
 
-            writer.println("</workers>");
-
+            pw.println("</workers>");
         } catch (IOException e) {
-            System.out.println("Ошибка при записи в файл: " + e.getMessage());
+            System.out.println("Ошибка записи: " + e.getMessage());
         }
     }
 
     /**
-     * Записывает один объект Worker в XML формат
+     * Записывает одного работника
      */
-    private void writeWorker(PrintWriter writer, Worker worker) {
-        writer.println("  <worker id=\"" + worker.getId() + "\">");
+    private void writeWorker(PrintWriter pw, Worker w) {
+        pw.println("  <worker id=\"" + w.getId() + "\">");
 
-        writer.println("    <name>" + escapeXml(worker.getName()) + "</name>");
+        pw.println("    <name>" + esc(w.getName()) + "</name>");
 
         // Coordinates
-        if (worker.getCoordinates() != null) {
-            writer.println("    <x>" + worker.getCoordinates().getX() + "</x>");
-            writer.println("    <y>" + worker.getCoordinates().getY() + "</y>");
+        if (w.getCoordinates() != null) {
+            pw.println("    <x>" + w.getCoordinates().getX() + "</x>");
+            pw.println("    <y>" + w.getCoordinates().getY() + "</y>");
         }
 
-        // Dates - с проверкой на null!
-        if (worker.getCreationDate() != null) {
-            writer.println("    <creationDate>" + worker.getCreationDate().format(DATE_FORMAT) + "</creationDate>");
-        } else {
-            writer.println("    <creationDate>" + LocalDate.now().format(DATE_FORMAT) + "</creationDate>");
-        }
+        // Даты с защитой от null
+        LocalDate cd = w.getCreationDate();
+        pw.println("    <creationDate>" + (cd != null ? cd : LocalDate.now()).format(DF) + "</creationDate>");
 
-        writer.println("    <salary>" + worker.getSalary() + "</salary>");
+        pw.println("    <salary>" + w.getSalary() + "</salary>");
 
-        if (worker.getStartDate() != null) {
-            writer.println("    <startDate>" + worker.getStartDate().format(DATE_FORMAT) + "</startDate>");
-        } else {
-            writer.println("    <startDate>" + LocalDate.now().format(DATE_FORMAT) + "</startDate>");
-        }
+        LocalDate sd = w.getStartDate();
+        pw.println("    <startDate>" + (sd != null ? sd : LocalDate.now()).format(DF) + "</startDate>");
 
-        // EndDate (может быть null)
-        if (worker.getEndDate() != null) {
-            LocalDate endDate = ((java.sql.Date) worker.getEndDate()).toLocalDate();
-            writer.println("    <endDate>" + endDate.format(DATE_FORMAT) + "</endDate>");
+        // EndDate
+        if (w.getEndDate() != null) {
+            LocalDate ed = ((java.sql.Date) w.getEndDate()).toLocalDate();
+            pw.println("    <endDate>" + ed.format(DF) + "</endDate>");
         } else {
-            writer.println("    <endDate></endDate>");
+            pw.println("    <endDate></endDate>");
         }
 
         // Status
-        if (worker.getStatus() != null) {
-            writer.println("    <status>" + worker.getStatus().name() + "</status>");
+        if (w.getStatus() != null) {
+            pw.println("    <status>" + w.getStatus().name() + "</status>");
         } else {
-            writer.println("    <status></status>");
+            pw.println("    <status></status>");
         }
 
         // Person
-        Person person = worker.getPerson();
-        if (person != null) {
-            writer.println("    <passportID>" + escapeXml(person.getPassportID()) + "</passportID>");
+        Person p = w.getPerson();
+        if (p != null) {
+            pw.println("    <passportID>" + esc(p.getPassportID()) + "</passportID>");
 
-            if (person.getEyeColor() != null) {
-                writer.println("    <eyeColor>" + person.getEyeColor().name() + "</eyeColor>");
-            } else {
-                writer.println("    <eyeColor></eyeColor>");
-            }
-
-            if (person.getHairColor() != null) {
-                writer.println("    <hairColor>" + person.getHairColor().name() + "</hairColor>");
-            } else {
-                writer.println("    <hairColor></hairColor>");
-            }
-
-            if (person.getNationality() != null) {
-                writer.println("    <nationality>" + person.getNationality().name() + "</nationality>");
-            } else {
-                writer.println("    <nationality></nationality>");
-            }
+            pw.println("    <eyeColor>" + (p.getEyeColor() != null ? p.getEyeColor().name() : "") + "</eyeColor>");
+            pw.println("    <hairColor>" + (p.getHairColor() != null ? p.getHairColor().name() : "") + "</hairColor>");
+            pw.println("    <country>" + (p.getCountry() != null ? p.getCountry().name() : "") + "</country>");
         }
 
-        writer.println("  </worker>");
+        pw.println("  </worker>");
     }
 
     /**
-     * Экранирует специальные XML символы
+     * Экранирует спецсимволы для XML
      */
-    private String escapeXml(String str) {
-        if (str == null) {
-            return "";
-        }
-        return str.replace("&", "&amp;")
+    private String esc(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")

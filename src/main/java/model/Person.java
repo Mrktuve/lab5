@@ -7,7 +7,7 @@ public class Person {
     private String passportID;
     private EyeColor eyeColor;
     private HairColor hairColor;
-    private Country nationality;
+    private Country country;
 
     public String getPassportID() {
         return passportID;
@@ -33,12 +33,12 @@ public class Person {
         this.hairColor = hairColor;
     }
 
-    public Country getNationality() {
-        return nationality;
+    public Country getCountry() {
+        return country;
     }
 
-    public void setNationality(Country nationality) {
-        this.nationality = nationality;
+    public void setCountry(Country nationality) {
+        this.country = country;
     }
 
     @Override
@@ -47,7 +47,7 @@ public class Person {
                 "passportID='" + passportID + '\'' +
                 ", eyeColor=" + eyeColor +
                 ", hairColor=" + hairColor +
-                ", nationality=" + nationality +
+                ", country=" + country +
                 '}';
     }
 }

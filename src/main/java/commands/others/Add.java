@@ -178,7 +178,7 @@ public class Add extends Command {
                 System.out.println("Нет такой страны.");
             }
         }
-        p.setNationality(country);
+        p.setCountry(country);
 
         w.setPerson(p);
         return w;
