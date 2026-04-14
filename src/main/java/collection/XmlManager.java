@@ -10,15 +10,31 @@ import java.util.PriorityQueue;
 import java.util.Scanner;
 
 
-
+/**
+ * Менеджер для сериализации и десериализации коллекции работников в/из XML.
+ * <p>
+ * Использует Scanner для чтения и PrintWriter для записи,
+ * как требуется в техническом задании.
+ * </p>
+ *
+ * @author Student
+ * @version 1.0
+ * @see model.Worker
+ * @see model.Person
+ * @see model.Coordinates
+ */
 
 public class XmlManager {
-
+    /** Форматтер для дат в формате ISO (yyyy-MM-dd) */
     private static final DateTimeFormatter DF = DateTimeFormatter.ISO_LOCAL_DATE;
 
 
-
-
+     /**
+     * Загружает коллекцию работников из XML-файла.
+     *
+     * @param fileName имя файла для загрузки
+     * @return PriorityQueue с загруженными работниками, пустая коллекция если файл не найден
+     */
     public PriorityQueue<Worker> load(String fileName) {
         PriorityQueue<Worker> queue = new PriorityQueue<>();
         File file = new File(fileName);
@@ -28,19 +44,24 @@ public class XmlManager {
         }
 
         try (Scanner sc = new Scanner(file)) {
+            // устанавливаем разделитель до конца файла, чтобы прочитать все в одну строку, а не построчно
             sc.useDelimiter("\\Z");
+            // ? тернарный оператор значит, что если sc.hasNext() true - в файле чтото есть, то выполняется sc.next() - читается содержимое, иначе пустая строка
             String xml = sc.hasNext() ? sc.next() : "";
 
-            // Разбиваем по тегам <worker
+            // Разбиваем по тегам <worker>, где массив строк parts, где каждый элемент данные одного работника
             String[] parts = xml.split("<worker");
             for (String part : parts) {
+                // trim() удаляет все пробелы и т.д., а isEmpty() проверяет пустая ли строка
                 if (part.trim().isEmpty()) continue;
 
                 Worker w = parseWorker(part);
+                // проверяем все данные работника и добавляем в коллекцию
                 if (w != null && w.getName() != null && !w.getName().isEmpty()) {
                     queue.add(w);
                 }
             }
+        // при любой ошибке срабатывает код ниже
         } catch (Exception e) {
             System.out.println("Ошибка чтения: " + e.getMessage());
         }
@@ -49,7 +70,12 @@ public class XmlManager {
     }
 
 
-
+     /**
+     * Парсит строку XML и создаёт объект Worker.
+     *
+     * @param xml строка с данными работника
+     * @return созданный Worker или null если данные невалидны
+     */
     private Worker parseWorker(String xml) {
         Worker w = new Worker();
 
@@ -58,15 +84,14 @@ public class XmlManager {
             int idStart = xml.indexOf("id=\"") + 4;
             int idEnd = xml.indexOf("\"", idStart);
             if (idStart > 3 && idEnd > idStart) {
+                // Извлекаем строку между кавычками и преобразуем ее в число, которое задаем id
                 w.setId(Integer.parseInt(xml.substring(idStart, idEnd)));
             }
         } catch (Exception ignored) {}
 
-        // Простые поля
         w.setName(get(xml, "name"));
         if (w.getName() == null || w.getName().isEmpty()) return null;
 
-        // Coordinates
         Coordinates c = new Coordinates();
         String x = get(xml, "x");
         String y = get(xml, "y");
@@ -102,13 +127,11 @@ public class XmlManager {
             } catch (Exception ignored) {}
         }
 
-        // Status
         String st = get(xml, "status");
         if (!st.isEmpty()) {
             try { w.setStatus(Status.valueOf(st.trim())); } catch (Exception ignored) {}
         }
 
-        // Person
         Person p = new Person();
         p.setPassportID(get(xml, "passportID"));
 
@@ -131,7 +154,13 @@ public class XmlManager {
         return w;
     }
 
-
+     /**
+     * Извлекает содержимое тега из XML-строки.
+     *
+     * @param xml XML-строка для поиска
+     * @param tag имя тега без угловых скобок
+     * @return содержимое тега или пустая строка если тег не найден
+     */
     private String get(String xml, String tag) {
         String open = "<" + tag + ">";
         String close = "</" + tag + ">";
@@ -140,15 +169,22 @@ public class XmlManager {
         start += open.length();
         int end = xml.indexOf(close, start);
         if (end == -1) return "";
+        // вырезаем tag - имя между строк и удаляем пробелмы по краям
         return xml.substring(start, end).trim();
     }
 
-
+     /**
+     * Сохраняет коллекцию работников в XML-файл.
+     *
+     * @param fileName имя файла для сохранения
+     * @param queue коллекция работников для сохранения
+     */
     public void save(String fileName, PriorityQueue<Worker> queue) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(fileName))) {
             pw.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
             pw.println("<workers>");
 
+            // для каждого работника в очереди вызываем метод записи
             for (Worker w : queue) {
                 writeWorker(pw, w);
             }
@@ -159,7 +195,12 @@ public class XmlManager {
         }
     }
 
-
+     /**
+     * Записывает одного работника в XML-формате.
+     *
+     * @param pw PrintWriter для записи
+     * @param w работник для записи
+     */
     private void writeWorker(PrintWriter pw, Worker w) {
         pw.println("  <worker id=\"" + w.getId() + "\">");
 
@@ -188,14 +229,12 @@ public class XmlManager {
             pw.println("    <endDate></endDate>");
         }
 
-        // Status
         if (w.getStatus() != null) {
             pw.println("    <status>" + w.getStatus().name() + "</status>");
         } else {
             pw.println("    <status></status>");
         }
 
-        // Person
         Person p = w.getPerson();
         if (p != null) {
             pw.println("    <passportID>" + esc(p.getPassportID()) + "</passportID>");
@@ -208,7 +247,12 @@ public class XmlManager {
         pw.println("  </worker>");
     }
 
-
+     /**
+     * Экранирует специальные символы для безопасной записи в XML.
+     *
+     * @param s исходная строка
+     * @return строка с экранированными символами
+     */
     private String esc(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;")

@@ -1,289 +1,180 @@
 package collection;
 
 import commands.Command;
-import model.Worker;
+import model.*;
+import java.io.*;
+import java.util.*;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
-
-
-
-
-
+/**
+ * парсер ExecuteScript
+ */
 public class ScriptParser {
-
+    // хранит обьект парсера
     private static ScriptParser instance;
-
-    private static final Set<String> executedFiles = new HashSet<>();
-
+    // множество выполняемых файлов для защиты от рекурсии
+    private static Set<String> executed = new HashSet<>();
     private WorkerCollection collection;
-    private Map<String, Command> commandRegistry;
+    // словарь с названием команд и обьектами команд
+    private Map<String, Command> commands;
 
-
+    // конструктор для создания обьекта
     private ScriptParser() {}
 
-    public static void initialize() {
+    public static ScriptParser getInstance() {
+        // проверяет создан ли обьект, если нет, то создает обьект и возвращаем обьект парсера
         if (instance == null) {
             instance = new ScriptParser();
-        } else {
-            throw new IllegalStateException("ScriptParser already initialized");
-        }
-    }
-
-
-    public static ScriptParser getInstance() {
-        if (instance == null) {
-            throw new IllegalStateException("ScriptParser not initialized. Call initialize() first.");
         }
         return instance;
     }
 
-
-    public void setDependencies(WorkerCollection collection, Map<String, Command> commandRegistry) {
-        this.collection = collection;
-        this.commandRegistry = commandRegistry;
+    public void setDependencies(WorkerCollection c, Map<String, Command> cmd) {
+        // сохраняем ссылки на коллекцию и словарь команд
+        collection = c;
+        commands = cmd;
     }
 
-
+    /**
+     * Выполняет скрипт из файла
+     */
     public void executeScript(String fileName) {
-        if (fileName == null || fileName.isEmpty()) {
-            System.out.println("Нужен путь к файлу");
+        // если название = null или там пустая строка, то выходим из метода
+        if (fileName == null || fileName.isEmpty()) return;
+
+        // Защита от рекурсии, executed.contains() проверяет есть ли файл во множестве и выходит из метода
+        if (executed.contains(fileName)) {
+            System.out.println("Рекурсия: " + fileName);
             return;
         }
+        // добавляет файл во множество
+        executed.add(fileName);
+        System.out.println("Выполняю: " + fileName);
 
-        // Проверка на рекурсию
-        if (executedFiles.contains(fileName)) {
-            System.out.println("Обнаружена рекурсия! Файл '" + fileName + "' уже выполняется.");
-            return;
-        }
-
-        // Добавляем файл в список выполняемых
-        executedFiles.add(fileName);
-
-        System.out.println("Выполняю скрипт: " + fileName);
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(fileName.trim()))) {
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                line = line.trim();
-
-                // Пропуск пустых строк и комментариев
+        // создаем обьект для чтения и открываем файл
+        try (BufferedReader r = new BufferedReader(new FileReader(fileName))) {
+            String line; // переменная для строки
+            // читает каждую строку из файла, пока не конец файла
+            while ((line = r.readLine()) != null) {
+                line = line.trim(); // удаляем пробелы по краям строки
+                // если строка пустая или начинается со знака комментария, то пропускаем
                 if (line.isEmpty() || line.startsWith("#")) continue;
 
-                System.out.println("> " + line);
+                System.out.println("> " + line); // вывод команды
 
-                // Парсинг команды
+                // как и в XmlManager. Разбиваем на 2 части/элемента в массив по пробелам
                 String[] parts = line.split("\\s+", 2);
-                String cmdName = parts[0];
-                String arg = parts.length > 1 ? parts[1].trim() : null;
+                String cmd = parts[0]; // имя команды
+                String arg = parts.length > 1 ? parts[1].trim() : null; //аргумент команды, если массив из 2 элементов, если так то удаляем пробелы по краме, иначе присуждаем null
 
-                // Проверка на рекурсивный вызов execute_script
-                if (checkRecursion(cmdName, arg)) {
+                // Проверяем есть ли команда execute_script в скрипте, есть ли у нее аргумент, и есть ли аргумент в множестве executed
+                if ("execute_script".equals(cmd) && arg != null && executed.contains(arg)) {
+                    System.out.println("Рекурсия: " + arg);
                     continue;
                 }
 
-                Worker worker = readWorkerIfNeeded(cmdName, arg, reader);
+                Worker w = null;
+                // проверяем есть ли нужные команда и аргумент, если да, то читаем данные работника из файла
+                if (needsWorker(cmd, arg)) {
+                    w = readWorker(r, cmd, arg);
+                }
 
-                try {
-                    executeCommand(cmdName, arg, worker);
-                } catch (Exception e) {
-                    System.out.println("Ошибка при выполнении команды '" + cmdName + "': " + e.getMessage());
+
+                Command c = commands.get(cmd); // ищем команду в словаре
+                // 4 варианта вызова execute, в зависимости от команды и данных из файла будет вызов нужного execute для команды
+                if (c != null) {
+                    if (w != null) {
+                        if (arg != null) c.execute(arg, w);
+                        else c.execute(w);
+                    } else if (arg != null) {
+                        c.execute(arg);
+                    } else {
+                        c.execute();
+                    }
+                } else {
+                    System.out.println("Неизвестная команда: " + cmd);
                 }
             }
-
             System.out.println("Скрипт завершён");
-
-        } catch (IOException e) {
-            System.out.println("Файл не найден: " + fileName);
-        } finally {
-            executedFiles.remove(fileName);
-        }
-    }
-
-
-    private boolean checkRecursion(String cmdName, String arg) {
-        if ("execute_script".equals(cmdName) && arg != null && !arg.isEmpty()) {
-            if (executedFiles.contains(arg)) {
-                System.out.println("Рекурсия: файл '" + arg + "' уже в стеке выполнения");
-                return true;
-            }
-        }
-        return false;
-    }
-
-
-    private Worker readWorkerIfNeeded(String cmdName, String arg, BufferedReader reader) {
-        if (!needsWorkerInput(cmdName, arg)) {
-            return null;
-        }
-
-        try {
-            return readWorkerFromReader(reader, cmdName, arg);
         } catch (Exception e) {
-            System.out.println("Ошибка чтения Worker из файла: " + e.getMessage());
-            return null;
+            System.out.println("Ошибка: " + e.getMessage());
+        } finally { // всегда выполняется
+            executed.remove(fileName); // удаляем файл из множества
         }
     }
 
-
-    private boolean needsWorkerInput(String cmdName, String arg) {
-        return switch (cmdName) {
-            case "add", "add_if_max","remove_lower" -> true;
+    /**
+     * Проверяем какие ввели команду и в зависимости от этого читаем  Worker
+     */
+    private boolean needsWorker(String cmd, String arg) {
+        return switch (cmd) {
+            case "add", "add_if_max", "remove_lower" -> true;
             case "update_id" -> arg != null && !arg.isEmpty();
             default -> false;
         };
     }
 
-
-    private Worker readWorkerFromReader(BufferedReader reader, String cmdName, String arg) throws Exception {
+    /**
+     * Читает Worker из файла
+     */
+    // throws Exception метод не ловит ошибки парсинга
+    private Worker readWorker(BufferedReader r, String cmd, String arg) throws Exception {
         Worker w = new Worker();
 
-        if ("update_id".equals(cmdName) && arg != null) {
-            w.setId(Integer.parseInt(arg));
+        // проверяем команду по словарю, и есть ли аргумент
+        if ("update_id".equals(cmd) && arg != null) {
+            w.setId(Integer.parseInt(arg));// присуждаем ID из аргумента
         } else {
-            int maxId = collection.getQueue().stream()
-                    .mapToInt(Worker::getId)
-                    .max()
-                    .orElse(0);
-            w.setId(maxId + 1);
+            int maxId = collection.getQueue().stream() // stream() создает поток из коллекции
+                    .mapToInt(Worker::getId) // извлекает все ID
+                    .max() // находит максимальный
+                    .orElse(0); // если пусто, то возвращает 0
+            w.setId(maxId + 1); // устанавливает ID
         }
 
 
+        w.setName(read(r)); // читает след строку
 
-
-        String name = readNonEmptyLine(reader, "name");
-        w.setName(name);
-
-        double x = readBoundedDouble(reader, "x", -26);
-        float y = readFloat(reader, "y");
-        model.Coordinates coords = new model.Coordinates();
-        coords.setX(x);
-        coords.setY(y);
-        w.setCoordinates(coords);
+        Coordinates c = new Coordinates();
+        try { c.setX(Double.parseDouble(read(r))); } catch (Exception e) { c.setX(-25.0); }
+        try { c.setY(Float.parseFloat(read(r))); } catch (Exception e) { c.setY(0.0f); }
+        w.setCoordinates(c);
 
         w.setCreationDate(java.time.LocalDate.now());
-        double salary = readPositiveDouble(reader, "salary");
-        w.setSalary(salary);
+        try { w.setSalary(Double.parseDouble(read(r))); } catch (Exception e) { w.setSalary(0.0); }
+        try { w.setStartDate(java.time.LocalDate.parse(read(r))); } catch (Exception e) { w.setStartDate(java.time.LocalDate.now()); }
 
-        java.time.LocalDate startDate = readLocalDate(reader, "startDate");
-        w.setStartDate(startDate);
-
-        String endDateStr = readOptionalLine(reader);
-        if (endDateStr != null && !endDateStr.isEmpty()) {
-            w.setEndDate(java.sql.Date.valueOf(java.time.LocalDate.parse(endDateStr)));
+        String ed = readOpt(r);
+        if (ed != null && !ed.isEmpty()) {
+            try { w.setEndDate(java.sql.Date.valueOf(java.time.LocalDate.parse(ed))); }
+            catch (Exception e) {}
         }
 
-        enums.Status status = readEnum(reader, "status", enums.Status.class);
-        w.setStatus(status);
+        try { w.setStatus(enums.Status.valueOf(read(r).toUpperCase())); }
+        catch (Exception e) { w.setStatus(null); }
 
-        model.Person p = new model.Person();
-        p.setPassportID(readNonEmptyLine(reader, "passportID"));
-        p.setEyeColor(readEnum(reader, "eyeColor", enums.EyeColor.class));
-        p.setHairColor(readEnum(reader, "hairColor", enums.HairColor.class));
-        p.setCountry(readEnum(reader, "country", enums.Country.class));
+        Person p = new Person();
+        p.setPassportID(read(r));
+        try { p.setEyeColor(enums.EyeColor.valueOf(read(r).toUpperCase())); } catch (Exception e) {}
+        try { p.setHairColor(enums.HairColor.valueOf(read(r).toUpperCase())); } catch (Exception e) {}
+        try { p.setCountry(enums.Country.valueOf(read(r).toUpperCase())); } catch (Exception e) {}
         w.setPerson(p);
 
         return w;
     }
 
-
-
-    private String readLine(BufferedReader reader) throws IOException {
-        String line = reader.readLine();
-        if (line == null) throw new IOException("Unexpected end of file");
-        return line.trim();
+    /**
+     * Читает строку (обязательную)
+     */
+    private String read(BufferedReader r) throws IOException {
+        String s = r.readLine();
+        return s == null ? "" : s.trim(); // возвращаем "", если строка null, иначе удаляем пробелы в строке и возвращаем ее
     }
 
-    private String readNonEmptyLine(BufferedReader reader, String fieldName) throws IOException {
-        String value;
-        while (true) {
-            value = readLine(reader);
-            if (!value.isEmpty()) return value;
-        }
-    }
-
-    private String readOptionalLine(BufferedReader reader) throws IOException {
-        String line = reader.readLine();
-        if (line == null) return null;
-        return line.trim();
-    }
-
-    private double readDouble(BufferedReader reader, String fieldName) throws IOException {
-        try {
-            return Double.parseDouble(readLine(reader));
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Неверное значение для " + fieldName);
-        }
-    }
-
-    private double readBoundedDouble(BufferedReader reader, String fieldName, double min) throws IOException {
-        double value = readDouble(reader, fieldName);
-        if (value <= min) {
-            throw new IllegalArgumentException(fieldName + " должен быть > " + min);
-        }
-        return value;
-    }
-
-    private double readPositiveDouble(BufferedReader reader, String fieldName) throws IOException {
-        double value = readDouble(reader, fieldName);
-        if (value <= 0) {
-            throw new IllegalArgumentException(fieldName + " должен быть > 0");
-        }
-        return value;
-    }
-
-    private float readFloat(BufferedReader reader, String fieldName) throws IOException {
-        try {
-            return Float.parseFloat(readLine(reader));
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Неверное значение для " + fieldName);
-        }
-    }
-
-    private java.time.LocalDate readLocalDate(BufferedReader reader, String fieldName) throws IOException {
-        try {
-            return java.time.LocalDate.parse(readLine(reader));
-        } catch (java.time.format.DateTimeParseException e) {
-            throw new IllegalArgumentException("Неверный формат даты для " + fieldName);
-        }
-    }
-
-    private <T extends Enum<T>> T readEnum(BufferedReader reader, String fieldName, Class<T> enumClass) throws IOException {
-        try {
-            return Enum.valueOf(enumClass, readLine(reader).toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Неверное значение для " + fieldName);
-        }
-    }
-
-    private void executeCommand(String cmdName, String arg, Worker worker) {
-        Command command = commandRegistry.get(cmdName);
-
-        if (command == null) {
-            System.out.println("Неизвестная команда: " + cmdName);
-            return;
-        }
-
-        if (worker != null) {
-            if (arg != null && !arg.isEmpty()) {
-                command.execute(arg, worker);
-            } else {
-                command.execute(worker);
-            }
-        } else if (arg != null && !arg.isEmpty()) {
-            command.execute(arg);
-        } else {
-            command.execute();
-        }
-    }
-
-    public void reset() {
-        executedFiles.clear();
+    /**
+     * Читает строку (опциональную)
+     */
+    private String readOpt(BufferedReader r) throws IOException {
+        String s = r.readLine();
+        return s == null ? null : s.trim();
     }
 }

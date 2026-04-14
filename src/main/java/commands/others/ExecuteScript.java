@@ -8,19 +8,20 @@ import model.Worker;
 import java.util.Map;
 
 public class ExecuteScript extends Command {
-
+    // ссылка на коллекцию для выполнения команд
     private final WorkerCollection collection;
+    // словарь команд, для поиска команд в scriptparser
     private final Map<String, Command> commandRegistry;
 
     public ExecuteScript(WorkerCollection collection, Map<String, Command> commandRegistry) {
-        this.collection = collection;
+        // сохраняем коллекцию и словарь
+        this.collection = collection; // поле этого объекта равен колекшену
         this.commandRegistry = commandRegistry;
 
         // Инициализация парсера при первом создании команды
-        if (ScriptParser.getInstance() == null) {
+        if (ScriptParser.getInstance() == null) { // ScriptParser.getInstance() получает экземпляр парсера
             try {
-                ScriptParser.initialize();
-                ScriptParser.getInstance().setDependencies(collection, commandRegistry);
+                ScriptParser.getInstance().setDependencies(collection, commandRegistry); // получаем ScriptParser
             } catch (IllegalStateException ignored) {
                 // Уже инициализирован в другом месте
             }
@@ -47,8 +48,6 @@ public class ExecuteScript extends Command {
         // Выполнение скрипта
         ScriptParser.getInstance().executeScript(fileName);
 
-        // Сброс после выполнения
-        ScriptParser.getInstance().reset();
     }
 
     @Override
