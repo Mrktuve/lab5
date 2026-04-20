@@ -14,9 +14,9 @@ public class PrintDescending extends Command {
     }
 
     @Override public void execute() {
-        List<Worker> list = new ArrayList<>(collection.getQueue());
-        list.sort(Collections.reverseOrder());
-        for (Worker w : list) System.out.println(w);
+        List<Worker> list = new ArrayList<>(collection.getQueue()); // создаем список, в который передаем очередь работников
+        list.sort(Collections.reverseOrder()); // делаем сортировку наоборот в  очереди
+        for (Worker w : list) System.out.println(w); //выводим каждого работника по одному из списка
     }
 
     @Override public void execute(String arg) {

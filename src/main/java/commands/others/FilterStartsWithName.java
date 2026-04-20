@@ -20,8 +20,8 @@ public class FilterStartsWithName extends Command {
             System.out.println("Нужна подстрока имени.");
             return;
         }
-        for (Worker w : collection.getQueue()) {
-            if (w.getName() != null && w.getName().startsWith(arg)) {
+        for (Worker w : collection.getQueue()) { // проходим по каждому работнику в коллекции
+            if (w.getName() != null && w.getName().startsWith(arg)) { // если имя не равно null и начинается ли имя с того что мы ввели
                 System.out.println(w);
             }
         }

@@ -56,6 +56,9 @@ public class WorkerCollection {
      * </p>
      */
     public void updateNextId() {
+        // queue.stream() создаем поток данных из очереди. mapToInt(Worker::getId) преобразуем каждый элемент в int
+        // вызывает каждого работника из потока и вызввает worker.getId(), тем самым создается поток из чисел
+        // находим максимальное число, если строка пустая, то возвращаем 0, если нашли максимальное число, то возвращаем его
         int maxId = queue.stream().mapToInt(Worker::getId).max().orElse(0);
         nextId = Math.max(nextId, maxId + 1);
     }
@@ -121,9 +124,9 @@ public class WorkerCollection {
      * @param sample образец для сравнения
      */
     public void removeLower(Worker sample) {
-        Iterator<Worker> it = queue.iterator();
-        while (it.hasNext()) {
-            if (it.next().compareTo(sample) < 0) it.remove();
+        Iterator<Worker> it = queue.iterator(); // создаем итератор для очереди
+        while (it.hasNext()) { // берет по одну элементу
+            if (it.next().compareTo(sample) < 0) it.remove(); // проверяет эелемент из очереди и наш элемент, если меньше по ID, то удаляет последний вызваный элемент
         }
     }
 }

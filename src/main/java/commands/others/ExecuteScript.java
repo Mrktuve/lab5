@@ -41,13 +41,8 @@ public class ExecuteScript extends Command {
         System.out.println();
         System.out.println("Чтение команд из файла: " + fileName);
         System.out.println();
-
-        // Установка зависимостей (на случай, если не были установлены)
-        ScriptParser.getInstance().setDependencies(collection, commandRegistry);
-
         // Выполнение скрипта
         ScriptParser.getInstance().executeScript(fileName);
-
     }
 
     @Override

@@ -124,10 +124,8 @@ public class ScriptParser {
         if ("update_id".equals(cmd) && arg != null) {
             w.setId(Integer.parseInt(arg));// присуждаем ID из аргумента
         } else {
-            int maxId = collection.getQueue().stream() // stream() создает поток из коллекции
-                    .mapToInt(Worker::getId) // извлекает все ID
-                    .max() // находит максимальный
-                    .orElse(0); // если пусто, то возвращает 0
+            int maxId = collection.getQueue().stream().mapToInt(Worker::getId).max().orElse(0);
+            // // stream() создает поток из коллекции.извлекает все ID. находит максимальный.если пусто, то возвращает 0
             w.setId(maxId + 1); // устанавливает ID
         }
 
